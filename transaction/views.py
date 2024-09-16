@@ -11,27 +11,221 @@ from google.cloud import vision
 from web3 import Web3
 from .utils import load_contract_abi
 
+from django.shortcuts import render
+import logging
+
+logger = logging.getLogger(__name__)
+
+def api_interaction_view(request):
+    return render(request, 'api_interaction.html')
+
 class TransactionViewSet(viewsets.ModelViewSet):
     queryset = Transaction.objects.all()
     serializer_class = TransactionSerializer
 
+    # # @action(detail=False, methods=['post'])
+    # # def create_transaction(self, request):
+    # #     data = request.data
+    # #     logger.debug("Incoming Data: %s", data)
+    # #     if 'total_amount' not in request.data or 'terms' not in request.data:
+    # #         return Response({"error": "Total amount and terms must be provided"}, status=400)
+
+    # #     total_amount = float(request.data['total_amount'])
+    # #     terms = request.data['terms']
+
+    # #     transaction = self.save_transaction(total_amount, terms)
+    # #     return Response({
+    # #         "message": "Transaction created",
+    # #         "transaction_id": transaction.id,
+    # #         "total_amount": transaction.total_amount,
+    # #         "terms_hash": transaction.terms_hash
+    # #     }, status=201)
+
+    # # def save_transaction(self, total_amount, terms):
+    # #     terms_hash = Web3.keccak(text=terms).hex()
+    # #     transaction = Transaction.objects.create(
+    # #         total_amount=total_amount,
+    # #         buyer="Buyer Name",
+    # #         seller="Seller Name",
+    # #         lawyer_details="Lawyer details",
+    # #         seller_details="Seller details",
+    # #         smart_contract_address=settings.SMART_CONTRACT_ADDRESS,
+    # #         terms_hash=terms_hash
+    # #     )
+    # #     return transaction
+    #  @action(detail=False, methods=['post'])
+    # def create_transaction(self, request):
+    #     data = request.data
+    #     logger.debug("Incoming Data: %s", data)
+        
+    #     if 'total_amount' not in data or 'terms' not in data:
+    #         return Response({"error": "Total amount and terms must be provided"}, status=status.HTTP_400_BAD_REQUEST)
+
+    #     total_amount_str = data.get('total_amount', '')
+    #     terms = data.get('terms', '')
+
+    #     if not total_amount_str:
+    #         return Response({"error": "Total amount cannot be empty"}, status=status.HTTP_400_BAD_REQUEST)
+
+    #     try:
+    #         total_amount = float(total_amount_str)
+    #     except ValueError:
+    #         return Response({"error": "Invalid total amount provided"}, status=status.HTTP_400_BAD_REQUEST)
+
+    #     transaction = self.save_transaction(total_amount, terms)
+    #     return Response({
+    #         "message": "Transaction created",
+    #         "transaction_id": transaction.id,
+    #         "total_amount": transaction.total_amount,
+    #         "terms_hash": transaction.terms_hash
+    #     }, status=status.HTTP_201_CREATED)
+
+    # def save_transaction(self, total_amount, terms):
+    #     terms_hash = Web3.keccak(text=terms).hex()
+    #     transaction = Transaction.objects.create(
+    #         total_amount=total_amount,
+    #         buyer="Buyer Name",
+    #         seller="Seller Name",
+    #         lawyer_details="Lawyer details",
+    #         seller_details="Seller details",
+    #         smart_contract_address=settings.SMART_CONTRACT_ADDRESS,
+    #         terms_hash=terms_hash
+    #     )
+    #     return transaction
+
+    # @action(detail=False, methods=['post'])
+    # def create_transaction(self, request):
+    #     data = request.data
+    #     logger.debug("Incoming Data: %s", data)
+        
+    #     if 'total_amount' not in data or 'terms' not in data:
+    #         return Response({"error": "Total amount and terms must be provided"}, status=status.HTTP_400_BAD_REQUEST)
+
+    #     total_amount_str = data.get('total_amount', '')
+    #     terms = data.get('terms', '')
+
+    #     if not total_amount_str:
+    #         return Response({"error": "Total amount cannot be empty"}, status=status.HTTP_400_BAD_REQUEST)
+
+    #     try:
+    #         total_amount = float(total_amount_str)
+    #     except ValueError:
+    #         return Response({"error": "Invalid total amount provided"}, status=status.HTTP_400_BAD_REQUEST)
+
+    #     # Deploy a new smart contract for this transaction
+    #     contract_address = self.deploy_new_smart_contract(total_amount, terms)
+        
+    #     if not contract_address:
+    #         return Response({"error": "Failed to deploy smart contract"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    #     transaction = self.save_transaction(total_amount, terms, contract_address)
+    #     return Response({
+    #         "message": "Transaction created",
+    #         "transaction_id": transaction.id,
+    #         "total_amount": transaction.total_amount,
+    #         "terms_hash": transaction.terms_hash,
+    #         "smart_contract_address": transaction.smart_contract_address
+    #     }, status=status.HTTP_201_CREATED)
+
+
+
+
     @action(detail=False, methods=['post'])
     def create_transaction(self, request):
-        if 'total_amount' not in request.data or 'terms' not in request.data:
-            return Response({"error": "Total amount and terms must be provided"}, status=400)
+        data = request.data
+        logger.debug("Incoming Data: %s", data)
+        
+        required_fields = ['total_amount', 'terms', 'parcel_id', 'buyer', 'seller']
+        for field in required_fields:
+            if field not in data:
+                return Response({"error": f"{field} must be provided"}, status=status.HTTP_400_BAD_REQUEST)
 
-        total_amount = float(request.data['total_amount'])
-        terms = request.data['terms']
+        try:
+            total_amount = float(data['total_amount'])
+        except ValueError:
+            return Response({"error": "Invalid total amount provided"}, status=status.HTTP_400_BAD_REQUEST)
 
-        transaction = self.save_transaction(total_amount, terms)
+        # Deploy a new smart contract if not already deployed
+        if not hasattr(settings, 'LAND_TRANSACTION_CONTRACT_ADDRESS'):
+            contract_address = deploy_smart_contract(settings.ORACLE_ADDRESS)
+            settings.LAND_TRANSACTION_CONTRACT_ADDRESS = contract_address
+        else:
+            contract_address = settings.LAND_TRANSACTION_CONTRACT_ADDRESS
+
+        transaction = self.save_transaction(data, contract_address)
+        
+        # Add transaction to the smart contract
+        try:
+            add_transaction(
+                contract_address,
+                transaction.id,
+                int(data['parcel_id']),
+                total_amount,
+                transaction.terms_hash
+            )
+        except Exception as e:
+            logger.error(f"Failed to add transaction to smart contract: {str(e)}")
+            transaction.delete()  # Rollback the transaction if smart contract interaction fails
+            return Response({"error": "Failed to add transaction to smart contract"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
         return Response({
             "message": "Transaction created",
             "transaction_id": transaction.id,
             "total_amount": transaction.total_amount,
-            "terms_hash": transaction.terms_hash
-        }, status=201)
+            "terms_hash": transaction.terms_hash,
+            "smart_contract_address": transaction.smart_contract_address
+        }, status=status.HTTP_201_CREATED)
 
-    def save_transaction(self, total_amount, terms):
+    def save_transaction(self, data, contract_address):
+        terms_hash = Web3.keccak(text=data['terms']).hex()
+        transaction = Transaction.objects.create(
+            total_amount=float(data['total_amount']),
+            buyer=data['buyer'],
+            seller=data['seller'],
+            parcel_id=data['parcel_id'],
+            terms=data['terms'],
+            smart_contract_address=contract_address,
+            terms_hash=terms_hash
+        )
+        return transaction
+
+    @action(detail=True, methods=['post'])
+    def verify_payment(self, request, pk=None):
+        transaction = self.get_object()
+        
+        try:
+            verify_payment(
+                transaction.smart_contract_address,
+                transaction.id,
+                transaction.total_amount,
+                transaction.terms_hash
+            )
+        except Exception as e:
+            logger.error(f"Failed to verify payment on smart contract: {str(e)}")
+            return Response({"error": "Failed to verify payment on smart contract"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        transaction.is_verified = True
+        transaction.save()
+
+        return Response({"message": "Payment verified successfully"}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['get'])
+    def check_verification(self, request, pk=None):
+        transaction = self.get_object()
+        is_verified = is_payment_verified(transaction.smart_contract_address, transaction.id)
+        
+        return Response({"is_verified": is_verified}, status=status.HTTP_200_OK)
+
+    def deploy_new_smart_contract(self, total_amount, terms):
+        try:
+            # This function should be implemented in a separate module
+            contract_address = deploy_smart_contract(total_amount, terms)
+            return contract_address
+        except Exception as e:
+            logger.error(f"Failed to deploy smart contract: {str(e)}")
+            return None
+
+    def save_transaction(self, total_amount, terms, contract_address):
         terms_hash = Web3.keccak(text=terms).hex()
         transaction = Transaction.objects.create(
             total_amount=total_amount,
@@ -39,7 +233,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
             seller="Seller Name",
             lawyer_details="Lawyer details",
             seller_details="Seller details",
-            smart_contract_address=settings.SMART_CONTRACT_ADDRESS,
+            smart_contract_address=contract_address,
             terms_hash=terms_hash
         )
         return transaction

@@ -1,0 +1,41 @@
+{
+  "_format": "hh-sol-cache-2",
+  "files": {
+    "/home/studen/smart_contract/transaction_shawazi/transaction/smart_contract/LandTransaction.sol": {
+      "lastModificationDate": 1726423895309,
+      "contentHash": "be2a430408c30a843b156b9ddf8f345c",
+      "sourceName": "transaction/smart_contract/LandTransaction.sol",
+      "solcConfig": {
+        "version": "0.8.24",
+        "settings": {
+          "evmVersion": "paris",
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "LandTransaction"
+      ]
+    }
+  }
+}
