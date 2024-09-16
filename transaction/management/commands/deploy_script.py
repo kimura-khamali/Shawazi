@@ -6,13 +6,14 @@ from django.conf import settings
 from transaction.models import Transaction
 
 class Command(BaseCommand):
-    help = 'Deploys the LandTransaction smart contract'
+    help = 'Deploys the LandTransaction smart contract and updates the Django model'
 
     def handle(self, *args, **options):
-        # Connect to the blockchain provider
-        w3 = Web3(Web3.HTTPProvider('http://localhost:8545'))
+        
+        provider_url = settings.BLOCKCHAIN_PROVIDER_URL  
+        w3 = Web3(Web3.HTTPProvider(provider_url))
 
-        # Ensure the connection is successful
+        
         if not w3.is_connected():
             self.stdout.write(self.style.ERROR('Failed to connect to the blockchain provider'))
             return
@@ -22,7 +23,7 @@ class Command(BaseCommand):
         self.stdout.write(f'Using account: {account}')
 
         # Load contract ABI and bytecode
-        contract_path = './transaction/artifacts/transaction/smart_contract/LandTransaction.sol/LandTransaction.json'
+        contract_path = './transaction/artifacts/transaction/smart_contract/LandTransaction.json'
         
         try:
             with open(contract_path, 'r') as file:
@@ -40,22 +41,162 @@ class Command(BaseCommand):
         LandTransactionContract = w3.eth.contract(abi=contract_abi, bytecode=contract_bytecode)
 
         # Define constructor arguments
-        oracle_address = '0x6Fb0D27e38fA6437a3BC2Bd10328310c8bC7F994'  # Replace with your actual oracle address
+        oracle_address = settings.ORACLE_ADDRESS  # Fetch from Django settings
 
         # Deploy the contract
         try:
-            tx_hash = LandTransactionContract.constructor(oracle_address).transact({'from': account})
-            tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
+            tx = LandTransactionContract.constructor(oracle_address).buildTransaction({
+                'from': account,
+                'gas': 5000000,  # Adjust gas limit as necessary
+                'gasPrice': w3.toWei('20', 'gwei'),  # Adjust gas price as necessary
+            })
+            signed_tx = w3.eth.account.signTransaction(tx, private_key=settings.DEPLOYER_PRIVATE_KEY)
+            tx_hash = w3.eth.sendRawTransaction(signed_tx.rawTransaction)
+            tx_receipt = w3.eth.waitForTransactionReceipt(tx_hash)
             
             # Get the contract address
             contract_address = tx_receipt.contractAddress
             self.stdout.write(self.style.SUCCESS(f'Contract deployed to {contract_address}'))
 
             # Update the contract address in the Django model
+            # Assuming you want to update all existing transactions with the new address
             Transaction.objects.update(smart_contract_address=contract_address)
             self.stdout.write(self.style.SUCCESS('Updated Transaction objects with new contract address'))
         except Exception as e:
             self.stdout.write(self.style.ERROR(f'Error deploying contract: {str(e)}'))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# import os
+# import json
+# from django.core.management.base import BaseCommand
+# from web3 import Web3
+# from django.conf import settings
+# from transaction.models import Transaction
+
+# class Command(BaseCommand):
+#     help = 'Deploys the LandTransaction smart contract'
+
+#     def handle(self, *args, **options):
+#         # Connect to the blockchain provider
+#         w3 = Web3(Web3.HTTPProvider('http://localhost:8545'))
+
+#         # Ensure the connection is successful
+#         if not w3.is_connected():
+#             self.stdout.write(self.style.ERROR('Failed to connect to the blockchain provider'))
+#             return
+
+#         # Get the account to deploy from
+#         account = w3.eth.accounts[0]
+#         self.stdout.write(f'Using account: {account}')
+
+#         # Load contract ABI and bytecode
+#         contract_path = './transaction/artifacts/transaction/smart_contract/LandTransaction.sol/LandTransaction.json'
+        
+#         try:
+#             with open(contract_path, 'r') as file:
+#                 contract_json = json.load(file)
+#                 contract_abi = contract_json['abi']
+#                 contract_bytecode = contract_json['bytecode']
+#         except FileNotFoundError:
+#             self.stdout.write(self.style.ERROR(f'Contract file not found at {contract_path}'))
+#             return
+#         except json.JSONDecodeError:
+#             self.stdout.write(self.style.ERROR(f'Invalid JSON in contract file at {contract_path}'))
+#             return
+        
+#         # Prepare contract instance
+#         LandTransactionContract = w3.eth.contract(abi=contract_abi, bytecode=contract_bytecode)
+
+#         # Define constructor arguments
+#         oracle_address = '0x6Fb0D27e38fA6437a3BC2Bd10328310c8bC7F994'  # Replace with your actual oracle address
+
+#         # Deploy the contract
+#         try:
+#             tx_hash = LandTransactionContract.constructor(oracle_address).transact({'from': account})
+#             tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
+            
+#             # Get the contract address
+#             contract_address = tx_receipt.contractAddress
+#             self.stdout.write(self.style.SUCCESS(f'Contract deployed to {contract_address}'))
+
+#             # Update the contract address in the Django model
+#             Transaction.objects.update(smart_contract_address=contract_address)
+#             self.stdout.write(self.style.SUCCESS('Updated Transaction objects with new contract address'))
+#         except Exception as e:
+#             self.stdout.write(self.style.ERROR(f'Error deploying contract: {str(e)}'))
 
 
 

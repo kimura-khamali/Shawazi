@@ -209,7 +209,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "transaction_shawazi.wsgi.application"
 
-# Database
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
@@ -217,7 +216,6 @@ DATABASES = {
     }
 }
 
-# Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
@@ -233,25 +231,42 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-# Internationalization
+
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
 
-# Static files (CSS, JavaScript, Images)
+
 STATIC_URL = "static/"
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-# Default primary key field type
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# Blockchain settings
-BLOCKCHAIN_PROVIDER_URL = 'http://localhost:8545'  # Ganache URL
-SMART_CONTRACT_ADDRESS = ''  # Will be updated after deployment
+
+BLOCKCHAIN_PROVIDER_URL = 'http://localhost:8545'  
+SMART_CONTRACT_ADDRESS = ''  
 LAND_TRANSACTION_ABI_PATH = os.path.join(BASE_DIR, 'LandTransaction.json')
 
 
-CORS_ALLOW_ALL_ORIGINS = True  # For development only. Be more specific in production.
+CORS_ALLOW_ALL_ORIGINS = True
 
+import os
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+DEBUG = True
+
+
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = True
