@@ -6,37 +6,27 @@ contract LandTransaction {
     address public oracleAddress;
 
     struct Transaction {
-        uint256 totalAmount;        
-        uint256 downPayment;        
-        uint256 penaltyRate;        
-        uint256 expirationDate;     
-        uint256 totalInstallments; 
-        uint256 installmentsPaid;   
+        uint256 totalAmount;
+        uint256 downPayment;
+        uint256 penaltyRate;
+        uint256 expirationDate;
+        uint256 totalInstallments;
+        uint256 installmentsPaid;
         uint256 lastInstallmentDate;
-        uint256 installmentAmount;  
-        uint256 currentAmountPaid;  
-        bool isVerified;            
-        bool isPaymentRecorded;     
-        bytes32 termsHash;          
-        bool isAgreementSigned;     
-        bool isCanceled;            
-        uint256 cancellationFee;    
-        uint256 refundFee;          
+        uint256 installmentAmount;
+        uint256 currentAmountPaid;
+        uint256 cancellationFee;
+        uint256 refundFee;
+        bytes32 termsHash;
+        bool isVerified;
+        bool isPaymentRecorded;
+        bool isAgreementSigned;
+        bool isCanceled;
     }
 
     mapping(uint256 => Transaction) public transactions;
 
-    event TransactionAdded(
-        uint256 indexed agreementId,
-        uint256 indexed parcelId,
-        uint256 totalAmount,
-        uint256 downPayment,
-        bytes32 termsHash,
-        uint256 penaltyRate,
-        uint256 expirationDate,
-        uint256 totalInstallments
-    );
-
+    event TransactionAdded(uint256 indexed agreementId, uint256 indexed parcelId);
     event PaymentVerified(uint256 indexed agreementId);
     event AgreementSigned(uint256 indexed agreementId);
     event PaymentRecorded(uint256 indexed agreementId, uint256 amount);
@@ -49,69 +39,64 @@ contract LandTransaction {
     }
 
     modifier onlyOwner() {
-        require(msg.sender == owner, "Only the owner can call this function");
+        require(msg.sender == owner, "Only owner");
         _;
     }
 
     modifier onlyOracle() {
-        require(msg.sender == oracleAddress, "Only the oracle can call this function");
+        require(msg.sender == oracleAddress, "Only oracle");
         _;
     }
 
-    function addTransaction(
+    function addTransactionPart1(
         uint256 _agreementId,
-        uint256 _parcelId,
         uint256 _totalAmount,
         uint256 _downPayment,
-        uint256 _penaltyRate,
+        uint256 _penaltyRate
+    ) public onlyOwner {
+        require(transactions[_agreementId].totalAmount == 0, "Exists");
+        
+        Transaction storage newTxn = transactions[_agreementId];
+        newTxn.totalAmount = _totalAmount;
+        newTxn.downPayment = _downPayment;
+        newTxn.penaltyRate = _penaltyRate;
+    }
+
+    function addTransactionPart2(
+        uint256 _agreementId,
         bytes32 _termsHash,
         uint256 _expirationDate,
         uint256 _totalInstallments,
         uint256 _cancellationFee,
         uint256 _refundFee
     ) public onlyOwner {
-        require(transactions[_agreementId].totalAmount == 0, "Transaction already exists");
+        Transaction storage newTxn = transactions[_agreementId];
+        require(newTxn.totalAmount > 0, "Part 1 not called");
+        
+        newTxn.termsHash = _termsHash;
+        newTxn.expirationDate = _expirationDate;
+        newTxn.totalInstallments = _totalInstallments;
+        newTxn.cancellationFee = _cancellationFee;
+        newTxn.refundFee = _refundFee;
+        newTxn.installmentAmount = (newTxn.totalAmount - newTxn.downPayment) / _totalInstallments;
 
-        uint256 installmentAmount = calculateInstallmentAmount(_totalAmount, _downPayment, _totalInstallments);
-        transactions[_agreementId] = Transaction({
-            totalAmount: _totalAmount,
-            downPayment: _downPayment,
-            penaltyRate: _penaltyRate,
-            expirationDate: _expirationDate,
-            totalInstallments: _totalInstallments,
-            installmentsPaid: 0,
-            lastInstallmentDate: 0,
-            installmentAmount: installmentAmount,
-            currentAmountPaid: 0,
-            isVerified: false,
-            isPaymentRecorded: false,
-            termsHash: _termsHash,
-            isAgreementSigned: false,
-            isCanceled: false,
-            cancellationFee: _cancellationFee,
-            refundFee: _refundFee
-        });
-
-        emit TransactionAdded(_agreementId, _parcelId, _totalAmount, _downPayment, _termsHash, _penaltyRate, _expirationDate, _totalInstallments);
-    }
-
-    function calculateInstallmentAmount(uint256 _totalAmount, uint256 _downPayment, uint256 _totalInstallments) internal pure returns (uint256) {
-        return (_totalAmount - _downPayment) / _totalInstallments;
+        emit TransactionAdded(_agreementId, _agreementId); 
     }
 
     function signAgreement(uint256 _agreementId) public onlyOwner {
-        require(!transactions[_agreementId].isAgreementSigned, "Agreement already signed");
-        transactions[_agreementId].isAgreementSigned = true;
+        Transaction storage txn = transactions[_agreementId];
+        require(!txn.isAgreementSigned, "Signed");
+        txn.isAgreementSigned = true;
         emit AgreementSigned(_agreementId);
     }
 
     function verifyPayment(uint256 _agreementId, uint256 _amount, bytes32 _termsHash) public onlyOracle {
         Transaction storage txn = transactions[_agreementId];
-        require(txn.totalAmount > 0, "Transaction does not exist");
+        require(txn.totalAmount > 0, "Not exist");
         require(txn.termsHash == _termsHash, "Terms mismatch");
-        require(txn.isAgreementSigned, "Agreement not signed");
-        require(!txn.isVerified, "Payment already verified");
-        require(_amount >= txn.downPayment, "Amount less than down payment");
+        require(txn.isAgreementSigned, "Not signed");
+        require(!txn.isVerified, "Verified");
+        require(_amount >= txn.downPayment, "Low amount");
 
         txn.isVerified = true;
         emit PaymentVerified(_agreementId);
@@ -119,27 +104,10 @@ contract LandTransaction {
 
     function recordPayment(uint256 _agreementId, uint256 _amount) public onlyOracle {
         Transaction storage txn = transactions[_agreementId];
-        require(txn.isVerified, "Payment not verified");
-        require(!txn.isPaymentRecorded, "Payment already recorded");
-        require(_amount >= txn.installmentAmount, "Amount less than required installment");
+        require(txn.isVerified, "Not verified");
+        require(!txn.isPaymentRecorded, "Recorded");
+        require(_amount >= txn.installmentAmount, "Low amount");
 
-        updateTransactionOnPayment(txn, _amount);
-        emit PaymentRecorded(_agreementId, _amount);
-    }
-
-    function payInstallment(uint256 _agreementId, uint256 _amount) public onlyOwner {
-        Transaction storage txn = transactions[_agreementId];
-        require(txn.totalAmount > 0, "Transaction does not exist");
-        require(txn.isVerified, "Payment not verified");
-        require(block.timestamp <= txn.expirationDate, "Contract has expired");
-        require(_amount > 0, "Amount must be greater than zero");
-        require(_amount >= txn.installmentAmount, "Amount less than required installment");
-
-        updateTransactionOnPayment(txn, _amount);
-        emit InstallmentPaid(_agreementId, txn.installmentsPaid, _amount);
-    }
-
-    function updateTransactionOnPayment(Transaction storage txn, uint256 _amount) internal {
         txn.currentAmountPaid += _amount;
         txn.installmentsPaid += 1;
         txn.lastInstallmentDate = block.timestamp;
@@ -147,16 +115,36 @@ contract LandTransaction {
         if (txn.currentAmountPaid >= txn.totalAmount) {
             txn.isPaymentRecorded = true;
         }
+
+        emit PaymentRecorded(_agreementId, _amount);
+    }
+
+    function payInstallment(uint256 _agreementId, uint256 _amount) public onlyOwner {
+        Transaction storage txn = transactions[_agreementId];
+        require(txn.totalAmount > 0, "Not exist");
+        require(txn.isVerified, "Not verified");
+        require(block.timestamp <= txn.expirationDate, "Expired");
+        require(_amount >= txn.installmentAmount, "Low amount");
+
+        txn.currentAmountPaid += _amount;
+        txn.installmentsPaid += 1;
+        txn.lastInstallmentDate = block.timestamp;
+
+        if (txn.currentAmountPaid >= txn.totalAmount) {
+            txn.isPaymentRecorded = true;
+        }
+
+        emit InstallmentPaid(_agreementId, txn.installmentsPaid, _amount);
     }
 
     function cancelTransaction(uint256 _agreementId) public onlyOwner {
         Transaction storage txn = transactions[_agreementId];
-        require(!txn.isCanceled, "Transaction is already cancelled");
-        require(txn.totalAmount > 0, "Transaction does not exist");
-        require(block.timestamp <= txn.expirationDate, "Contract has expired");
+        require(!txn.isCanceled, "Cancelled");
+        require(txn.totalAmount > 0, "Not exist");
+        require(block.timestamp <= txn.expirationDate, "Expired");
 
-        uint256 refundAmount = calculateRefundAmount(txn.currentAmountPaid, txn.cancellationFee);
-        require(refundAmount > 0, "No refundable amount available");
+        uint256 refundAmount = txn.currentAmountPaid > txn.cancellationFee ? txn.currentAmountPaid - txn.cancellationFee : 0;
+        require(refundAmount > 0, "No refund");
 
         payable(msg.sender).transfer(refundAmount);
         txn.isCanceled = true;
@@ -164,30 +152,13 @@ contract LandTransaction {
         emit PaymentCancelled(_agreementId);
     }
 
-    function calculateRefundAmount(uint256 _currentAmountPaid, uint256 _cancellationFee) internal pure returns (uint256) {
-        return _currentAmountPaid > _cancellationFee ? _currentAmountPaid - _cancellationFee : 0;
-    }
-
     function getTransactionDetails(uint256 _agreementId) public view returns (
-        uint256 totalAmount,
-        uint256 downPayment,
-        uint256 penaltyRate,
-        uint256 expirationDate,
-        uint256 totalInstallments,
-        uint256 installmentsPaid,
-        uint256 lastInstallmentDate,
-        uint256 installmentAmount,
-        uint256 currentAmountPaid,
-        bool isVerified,
-        bool isPaymentRecorded,
-        bytes32 termsHash,
-        bool isAgreementSigned,
-        bool isCanceled,
-        uint256 cancellationFee,
-        uint256 refundFee
+        uint256[11] memory numericDetails,
+        bool[4] memory booleanDetails,
+        bytes32 termsHash
     ) {
-        Transaction memory txn = transactions[_agreementId];
-        return (
+        Transaction storage txn = transactions[_agreementId];
+        numericDetails = [
             txn.totalAmount,
             txn.downPayment,
             txn.penaltyRate,
@@ -197,14 +168,16 @@ contract LandTransaction {
             txn.lastInstallmentDate,
             txn.installmentAmount,
             txn.currentAmountPaid,
-            txn.isVerified,
-            txn.isPaymentRecorded,
-            txn.termsHash,
-            txn.isAgreementSigned,
-            txn.isCanceled,
             txn.cancellationFee,
             txn.refundFee
-        );
+        ];
+        booleanDetails = [
+            txn.isVerified,
+            txn.isPaymentRecorded,
+            txn.isAgreementSigned,
+            txn.isCanceled
+        ];
+        termsHash = txn.termsHash;
     }
 
     function isPaymentVerified(uint256 _agreementId) public view returns (bool) {
@@ -212,21 +185,16 @@ contract LandTransaction {
     }
 
     function isContractExpired(uint256 _agreementId) public view returns (bool) {
-        require(transactions[_agreementId].totalAmount > 0, "Transaction does not exist");
         return block.timestamp > transactions[_agreementId].expirationDate;
     }
 
     function getRemainingInstallments(uint256 _agreementId) public view returns (uint256) {
-        require(transactions[_agreementId].totalAmount > 0, "Transaction does not exist");
-        return transactions[_agreementId].totalInstallments - transactions[_agreementId].installmentsPaid;
+        Transaction storage txn = transactions[_agreementId];
+        return txn.totalInstallments - txn.installmentsPaid;
     }
 
     function getPenalty(uint256 _agreementId) public view returns (uint256) {
-        require(transactions[_agreementId].totalAmount > 0, "Transaction does not exist");
-        return calculatePenalty(transactions[_agreementId].totalAmount, transactions[_agreementId].penaltyRate);
-    }
-
-    function calculatePenalty(uint256 _totalAmount, uint256 _penaltyRate) internal pure returns (uint256) {
-        return (_totalAmount * _penaltyRate) / 100;
+        Transaction storage txn = transactions[_agreementId];
+        return (txn.totalAmount * txn.penaltyRate) / 100;
     }
 }

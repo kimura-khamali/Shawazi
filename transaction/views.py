@@ -146,7 +146,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
             if self.cancel_transaction_on_blockchain(transaction.smart_contract_address, transaction.id):
                 refund_amount = transaction.current_amount_paid - transaction.cancellation_fee
                 if refund_amount > 0:
-                    # Handle the refund logic here
+                    
                     pass
 
                 transaction.is_canceled = True

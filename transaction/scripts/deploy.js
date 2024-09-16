@@ -1,20 +1,58 @@
-// scripts/deploy.js
+const hre = require("hardhat");
 
 async function main() {
-    const [deployer] = await ethers.getSigners();
+  const [deployer] = await hre.ethers.getSigners();
 
-    console.log("Deploying contracts with the account:", deployer.address);
+  console.log("Deploying contracts with the account:", deployer.address);
 
-    const MyContract = await ethers.getContractFactory("MyContract");
-    const contract = await MyContract.deploy();
+  
+  const oracleAddress = "0x1234567890123456789012345678901234567890";
 
-    console.log("Contract deployed to address:", contract.address);
+  const LandTransaction = await hre.ethers.getContractFactory("LandTransaction");
+  const landTransaction = await LandTransaction.deploy(oracleAddress);
+
+  await landTransaction.deployed();
+
+  console.log("LandTransaction deployed to:", landTransaction.address);
 }
 
-main().catch((error) => {
+main()
+  .then(() => process.exit(0))
+  .catch((error) => {
     console.error(error);
-    process.exitCode = 1;
-});
+    process.exit(1);
+  });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// // scripts/deploy.js
+
+// async function main() {
+//     const [deployer] = await ethers.getSigners();
+
+//     console.log("Deploying contracts with the account:", deployer.address);
+
+//     const MyContract = await ethers.getContractFactory("MyContract");
+//     const contract = await MyContract.deploy();
+
+//     console.log("Contract deployed to address:", contract.address);
+// }
+
+// main().catch((error) => {
+//     console.error(error);
+//     process.exitCode = 1;
+// });
 
 
 
