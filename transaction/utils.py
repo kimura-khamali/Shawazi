@@ -1,7 +1,8 @@
-# transaction/utils.py
-
 import json
 from django.conf import settings
+from web3 import Web3
+from PIL import Image
+import pytesseract
 
 def load_contract_abi():
     with open(settings.CONTRACT_ABI_PATH) as f:
@@ -9,7 +10,6 @@ def load_contract_abi():
     return contract_abi
 
 def deploy_smart_contract(oracle_address):
-    from web3 import Web3
     w3 = Web3(Web3.HTTPProvider(settings.BLOCKCHAIN_PROVIDER_URL))
 
     with open(settings.CONTRACT_BYTECODE_PATH) as f:
@@ -20,6 +20,62 @@ def deploy_smart_contract(oracle_address):
     tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
 
     return tx_receipt.contractAddress
+
+def extract_text_from_image(image_path):
+    try:
+        image = Image.open(image_path)
+        text = pytesseract.image_to_string(image)
+        return text
+    except Exception as e:
+        raise ValueError(f"Error extracting text from image: {e}")
+
+def parse_transaction_data(text):
+    """
+    Parses transaction details from extracted text.
+    Assumes a specific format of the text.
+    """
+    try:
+        data = json.loads(text)
+        return {
+            'total_amount': data.get('total_amount'),
+            'terms': data.get('terms'),
+            'parcel_id': data.get('parcel_id'),
+            'buyer': data.get('buyer'),
+            'seller': data.get('seller')
+        }
+    except json.JSONDecodeError:
+        raise ValueError("Error parsing transaction data from text")
+
+
+
+
+
+
+
+
+
+# # transaction/utils.py
+
+# import json
+# from django.conf import settings
+
+# def load_contract_abi():
+#     with open(settings.CONTRACT_ABI_PATH) as f:
+#         contract_abi = json.load(f)
+#     return contract_abi
+
+# def deploy_smart_contract(oracle_address):
+#     from web3 import Web3
+#     w3 = Web3(Web3.HTTPProvider(settings.BLOCKCHAIN_PROVIDER_URL))
+
+#     with open(settings.CONTRACT_BYTECODE_PATH) as f:
+#         contract_bytecode = f.read().strip()
+
+#     Contract = w3.eth.contract(abi=load_contract_abi(), bytecode=contract_bytecode)
+#     tx_hash = Contract.constructor(oracle_address).transact({'from': w3.eth.accounts[0]})
+#     tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
+
+#     return tx_receipt.contractAddress
 
 
 
