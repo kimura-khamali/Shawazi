@@ -1,8 +1,8 @@
-// hardhat.config.js
-
 require('@nomiclabs/hardhat-ethers');
+require('@nomiclabs/hardhat-etherscan');
+require('dotenv').config();
 
-
+const { INFURA_PROJECT_ID, PRIVATE_KEY, ETHERSCAN_API_KEY } = process.env;
 
 module.exports = {
   solidity: {
@@ -12,7 +12,7 @@ module.exports = {
         enabled: true,
         runs: 200
       },
-      viaIR: true // Enable viaIR to help with stack too deep errors
+      viaIR: true 
     }
   },
   paths: {
@@ -22,11 +22,89 @@ module.exports = {
     artifacts: "./transaction/artifacts"
   },
   networks: {
+    hardhat: {
+      chainId: 1337
+    },
     localhost: {
       url: "http://127.0.0.1:8545"
-    }
+    },
+    ...(INFURA_PROJECT_ID && PRIVATE_KEY ? {
+      rinkeby: {
+        url: `https://rinkeby.infura.io/v3/${INFURA_PROJECT_ID}`,
+        accounts: [`0x${PRIVATE_KEY}`]
+      },
+      mainnet: {
+        url: `https://mainnet.infura.io/v3/${INFURA_PROJECT_ID}`,
+        accounts: [`0x${PRIVATE_KEY}`]
+      }
+    } : {})
+  },
+  etherscan: {
+    apiKey: ETHERSCAN_API_KEY
   }
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// // hardhat.config.js
+
+// require('@nomiclabs/hardhat-ethers');
+
+
+
+// module.exports = {
+//   solidity: {
+//     version: "0.8.24",
+//     settings: {
+//       optimizer: {
+//         enabled: true,
+//         runs: 200
+//       },
+//       viaIR: true // Enable viaIR to help with stack too deep errors
+//     }
+//   },
+//   paths: {
+//     sources: "./transaction/smart_contract",
+//     tests: "./transaction/test",
+//     cache: "./transaction/cache",
+//     artifacts: "./transaction/artifacts"
+//   },
+//   networks: {
+//     localhost: {
+//       url: "http://127.0.0.1:8545"
+//     }
+//   }
+// };
 
 
 
